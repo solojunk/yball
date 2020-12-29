@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>弹一弹</title>
+    </head>
+    <body>
+        <script src="./js/phaser.min.js" type="text/javascript" charset="utf-8"></script>
+        <script type="text/javascript">
+            const g_border = 5; // 边框宽度
+            var s_width = window.innerWidth-g_border*2-(window.innerWidth-g_border*2)%50; // 游戏区宽度
+            var s_height = window.innerHeight-window.innerHeight%50; // 游戏区高度
+            if (s_height*9 > s_width*16) {
+                s_height = Math.floor(s_width * 16 / (9*50)) * 50;
+            } else {
+                s_width = Math.floor(s_height * 9 / (16*50)) * 50;
+            }
+            var s_length = s_width / 7;
+            const g_width = s_width + g_border*2; // 场景总宽度
+            const g_height = s_height + g_border*2; // 场景总高度
+
+            var gameData = {
+                deadFloors: s_height/s_length, // 死亡所需层数
+                totalFloors: 1, // 累积层数
+                ballNum: 1, //初始球的数量
+                ballSpeed: 4000, //球速
+                score: 0, //分数
+                squareIndex: 0, // 方块编号
+                squareMap: new Map(), //方块阵列
+                curFloors: 0, // 当前到达层数
+                isShooting: false, // 是否在弹球中
+                trajectory: {}, // 弹道目标点
+                balls: new Array(), // 弹球数组
+                shootingBalls: 0 // 还在弹球中的球的个数
+            };
+            
+            const config = {
+                width: g_width,
+                height: g_height,
+                type: Phaser.AUTO,
+                physics: {
+                    default: 'arcade'
+                },
+                scene: {
+                    preload: preload,
+                    create: create
+                }
+            }
+            var game = new Phaser.Game(config);
+            var scoreText; // 分数bitmapText
+            var gameOver; // 游戏结束提示
+            var timedEvent; // 次第射出时间线
+
+            // 加载资源
+            function preload() {
+                this.load.image('background', './img/mBackground.jpg');
+                this.load.image('rectangle', './img/rectangle.png');
+                this.load.image('ball', './img/plusBall.png');
+                this.load.bitmapFont('gothic', './img/gothic.png', './img/gothic.xml');
+            }
+
+            // 对象的创建及初始化
+            function create() {
+                // 禁止鼠标弹出上下文菜单
+                this.input.mouse.disableContextMenu();
+                // 背景
+                this.add.image(0, 0, 'background').setDisplaySize(g_width, g_height).setOrigin(0, 0);
+                // 边框
+                this.add.rectangle(0, 0, g_width, g_height).setFillStyle().setStrokeStyle(10, 0x00).setDepth(1).setOrigin(0, 0);
+                // 弹球
+                var ball = this.physics.add.image(0, 0, 'ball').setDisplaySize(s_length/2,s_length/2).setPosition(g_width/2, g_height-s_length/2);
+                ball.body.onWorldBounds = true;
+                gameData.balls.push(ball);
+                gameData.ballGroup = this.physics.add.group({bounceX: 1, bounceY: 1, collideWorldBounds: true});
+                gameData.ballGroup.add(ball);
+                // 弹球个数
+                this.add.bitmapText(g_width/8, g_height-s_length*2/3, 'gothic', 'balls:', s_length/3).setDepth(1);
+                ballsText = this.add.bitmapText(g_width/8+s_length*4/3, g_height-s_length*3/5, 'gothic', '1', s_length*5/18).setDepth(1);
+                // 得分
+                this.add.bitmapText(g_width*2/3, g_height-s_length*2/3, 'gothic', 'score:', s_length/3).setDepth(1);
+                scoreText = this.add.bitmapText(g_width*2/3+s_length*4/3, g_height-s_length*3/5, 'gothic', '0', s_length*5/18).setDepth(1);
+                // 结束
+                gameOver = this.add.bitmapText(g_width/8, g_height/3, 'gothic', 'game over~', s_length).setDepth(1).setVisible(false);
+                // 初始化弹道虚线
+                var dashLine = new Array();
+                for (var i = 0; i < 25; i++) {
+                    dashLine[i] = this.add.line(0, 0, g_width/2, g_height-s_length/2, g_width/2, g_height-s_length/2, 0x00).setOrigin(0, 0);
+                }
+
+                // 鼠标移动事件
+                this.input.on('pointermove', function (pointer) {
+                    // 画瞄准线
+                    drawDashLine(pointer.x, pointer.y, dashLine);
+                });
+
+                // 鼠标放开事件
+                this.input.on('pointerup', function (pointer) {
+                    // 如果正在弹球中，忽略鼠标事件
+                    if (gameData.isShooting) return;
+                    // 从没有触发过鼠标移动事件，直接检测落点
+                    if (gameData.trajectory.x == undefined) {
+                        if (pointer.y > g_height-s_length/2 && Math.abs((g_height-s_length/2 - pointer.y) / (pointer.x - g_width/2)) >= 0.4) return;
+                        gameData.trajectory.x = pointer.x;
+                        gameData.trajectory.y = pointer.y;
+                    }
+
+                    // 将状态设置为弹球中
+                    gameData.isShooting = true;
+                    gameData.shootingBalls = gameData.balls.length;
+                    // 隐藏瞄准线
+                    for (var i = 0; i < 25; i++) {
+                        dashLine[i].setVisible(false);
+                    }
+
+                    // 将球弹出去
+                    var vx = 0, vy = 0;
+                    // 计算斜率
+                    var slope = Math.abs((g_height-s_length/2 - gameData.trajectory.y) / (gameData.trajectory.x - g_width/2));
+                    // 根据斜率大小和正负计算速度方向轨迹点
+                    if (slope >= 1) {
+                        vy = -gameData.ballSpeed;
+                        vx = (gameData.trajectory.x - g_width/2) * vy / (gameData.trajectory.y - (g_height-s_length/2));
+                    } else {
+                        vx = gameData.trajectory.x >= g_width/2 ? gameData.ballSpeed : -gameData.ballSpeed;
+                        vy = (gameData.trajectory.y - (g_height-s_length/2)) * vx / (gameData.trajectory.x - g_width/2);
+                    }
+                    gameData.trajectory.vx = vx
+                    gameData.trajectory.vy = vy;
+                    // 次第显示弹球不重叠
+                    timedEvent = this.time.addEvent({delay: 100, callback: onOneByOnEvent, repeat: gameData.balls.length});
+                }, this);
+
+                // 设置边界和边界事件函数
+                this.physics.world.setBounds(g_border, 0, s_width, g_height);
+                this.physics.world.on('worldbounds', onWorldBounds, this);
+                // 方块组
+                gameData.squareGroup = this.physics.add.group({immovable: true});
+
+                // 增加一层方块
+                createOneFloor.call(this);
+                // 弹球和方块加入碰撞检测
+                this.physics.add.collider(gameData.ballGroup, gameData.squareGroup, onCollider);
+            }
+
+            function drawDashLine(x, y, dashLine) {
+                // 如果状态为弹球中，不用画
+                if (gameData.isShooting) return;
+
+                // 斜率
+                var slope = (g_height-s_length/2 - y) / (x - g_width/2);
+
+                // 设定最小斜率，低于此斜率的不画
+                if (y > g_height-s_length/2 || Math.abs(slope) < 0.4) return;
+
+                // 画虚线
+                for (var i = 0; i < 25; i++) {
+                    setDashLine(dashLine[i], i, slope);
+                }
+                gameData.trajectory.x = x;
+                gameData.trajectory.y = y;
+            }
+
+            function setDashLine(line, index, slope) {
+                var x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+                // 根据斜率计算虚线起始点位置
+                if (slope > 0) {
+                    x1 = g_width/2 + index*2 * s_width/s_length;
+                    x2 = g_width/2 + (index*2+1) * s_width/s_length;
+                    y1 = g_height-s_length/2 - (index*2 * s_width/s_length)*slope;
+                    y2 = g_height-s_length/2 - ((index*2+1) * s_width/s_length)*slope;
+                } else {
+                    x1 = g_width/2 - index*2 * s_width/s_length;
+                    x2 = g_width/2 - (index*2+1) * s_width/s_length;
+                    y1 = g_height-s_length/2 + (index*2 * s_width/s_length)*slope;
+                    y2 = g_height-s_length/2 + ((index*2+1) * s_width/s_length)*slope;
+                }
+                // 如果虚线超出边框，反射回边框内
+                if (x2 > s_width+g_border) {
+                    if (x1 < s_width+g_border) {
+                        y2 = (s_width+g_border-x1) * (y2-y1) / (x2-x1) + y1;
+                        x2 = s_width+g_border;
+                    } else {
+                        x1 = s_width+g_border - (x1 - s_width-g_border);
+                        x2 = s_width+g_border - (x2 - s_width-g_border);
+                    }
+                } else if (x2 < g_border) {
+                    if (x1 > g_border) {
+                        y2 = (y2-y1) * (g_border-x1) / (x2-x1) + y1;
+                        x2 = g_border;
+                    } else {
+                        x1 = g_border-x1 + g_border;
+                        x2 = g_border-x2 + g_border;
+                    }
+                }
+                line.setTo(x1, y1, x2, y2).setVisible(true);
+            }
+
+            function onWorldBounds (body, up, down) {
+                // 上左右边界不用额外处理
+                if (!down) return;
+                // 碰到下边界时，弹球回到起点位置，运动中的弹球数减一
+                body.gameObject.body.reset(g_width/2, g_height-s_length/2);
+                gameData.shootingBalls -= 1;
+
+                // 如果还有球在弹球中，不用作后面的处理
+                if (gameData.shootingBalls > 0) {
+                    return;
+                }
+
+                // 增加一层方块
+                createOneFloor.call(this);
+
+                // 根据得分奖励球
+                var cnt = Math.floor(Math.log2(gameData.score) + gameData.totalFloors/5);
+                if (cnt > gameData.balls.length) {
+                    for (var i = 0; i < cnt-gameData.balls.length; i++) {
+                        var ball = this.physics.add.image(0, 0, 'ball').setDisplaySize(s_length/2,s_length/2).setPosition(g_width/2, g_height-s_length/2);
+                        ball.body.onWorldBounds = true;
+                        gameData.balls.push(ball);
+                        gameData.ballGroup.add(ball);
+                    }
+                    ballsText.setText(cnt);
+                }
+                // 当所有球都停下时，将状态置为非弹球状态
+                gameData.isShooting = false;
+            }
+
+            function onCollider(ball, rectangle) {
+                // 获取碰撞到的方块对象
+                var squareIndex = rectangle.getData('ID');
+                var square = gameData.squareMap.get(squareIndex);
+                // 撞到了，方块数值减１，游戏得分加1
+                gameData.score += 1;
+                scoreText.setText(gameData.score);
+                var score = square.squareObj.score.text - 1;
+                if (score <= 0) {
+                    // 数据降为0以下，销毁方块
+                    gameData.squareGroup.remove(square.squareObj.rectangle);
+                    square.squareObj.rectangle.destroy();
+                    square.squareObj.score.destroy();
+                    gameData.squareMap.delete(squareIndex);
+                } else {
+                    square.squareObj.score.setText(score);
+                }
+            }
+
+            function createOneFloor() {
+                // 将当前方块阵列下移一层
+                var maxY = 0;
+                if (gameData.curFloors > 0) {
+                    gameData.squareMap.forEach(function(square) {
+                        square.position.y += s_length;
+                        if (square.position.y > maxY) {
+                            maxY = square.position.y;
+                        }
+                    })
+                }
+
+                // 确定在哪几个点放方块
+                var cnt = Math.floor(Math.random()*5)+1;
+                var rands = new Array();
+                for (var i = 0; i < s_width/s_length; i++) {
+                    rands[i] = i;
+                }
+                // 随机洗牌法
+                rands = shuffle(rands, rands.length)
+                for (var i = 0; i < cnt; i++) {
+                    gameData.squareIndex += 1;
+                    square = {position: {x: rands[i]*s_length+g_border, y: 0}};
+                    square.squareObj = createOneSquare.call(this, square.position.x, square.position.y);
+                    square.squareObj.rectangle.setData('ID', gameData.squareIndex);
+                    gameData.squareMap.set(gameData.squareIndex, square)
+                }
+
+                // 方块阵列层数加1
+                gameData.curFloors = Math.ceil(maxY / s_length) + 1;
+                gameData.totalFloors += 1;
+
+                // 渲染方块图
+                render();
+
+                // 到达死亡判定层数，停止游戏
+                if (gameData.curFloors >= gameData.deadFloors) {
+                    this.sys.pause();
+                    gameOver.setVisible(true);
+                }
+            }
+
+            function shuffle(array, size) {
+                // 数组随机洗牌
+                var index = -1, lastIndex = size - 1;
+                while (++index < size) {
+                    var rand = index + Math.floor(Math.random() * (lastIndex - index + 1));
+                    value = array[rand];
+                    array[rand] = array[index];
+                    array[index] = value;
+                }
+                return array;
+            }
+
+            function render() {
+                // 方块阵列位置渲染
+                gameData.squareMap.forEach(function(square) {
+                    square.squareObj.rectangle.setPosition(square.position.x, square.position.y);
+                    square.squareObj.score.setPosition(square.position.x+s_length/2-square.squareObj.score.width/2, square.position.y+s_length/2-square.squareObj.score.height/2);
+                })
+            }
+
+            // 创建一个方块
+            function createOneSquare(x, y) {
+                var squareObj = new Object();
+                squareObj.rectangle = gameData.squareGroup.create(x, y, 'rectangle').setDisplaySize(s_length, s_length).setOrigin(0, 0);
+                squareObj.score = this.add.bitmapText(x, y, 'gothic', 1 + Math.floor(gameData.totalFloors/5 + Math.random() * gameData.totalFloors/5), s_length/3);
+                squareObj.score.setPosition(x+s_length/2-squareObj.score.width/2, y+s_length/2-squareObj.score.height/2);
+               return squareObj;
+            }
+
+            function onOneByOnEvent() {
+                // 弹球逐个弹出
+                if (timedEvent.repeatCount > 0) {
+                    gameData.balls[gameData.balls.length-timedEvent.repeatCount].setVelocity(gameData.trajectory.vx, gameData.trajectory.vy);
+                }
+            }
+        </script>
+    </body>
+</html>

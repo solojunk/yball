@@ -8,6 +8,7 @@
         <script src="./js/phaser.min.js" type="text/javascript" charset="utf-8"></script>
         <script type="text/javascript">
             const g_border = 5; // 边框宽度
+            const g_linecnt = 7; // 一行方块的个数
             var s_width = window.innerWidth-g_border*2-(window.innerWidth-g_border*2)%50; // 游戏区宽度
             var s_height = window.innerHeight-window.innerHeight%50; // 游戏区高度
             if (s_height*9 > s_width*16) {
@@ -15,7 +16,7 @@
             } else {
                 s_width = Math.floor(s_height * 9 / (16*50)) * 50;
             }
-            var s_length = s_width / 7;
+            var s_length = s_width / g_linecnt;
             const g_width = s_width + g_border*2; // 场景总宽度
             const g_height = s_height + g_border*2; // 场景总高度
 
@@ -164,15 +165,15 @@
                 var x1 = 0, y1 = 0, x2 = 0, y2 = 0;
                 // 根据斜率计算虚线起始点位置
                 if (slope > 0) {
-                    x1 = g_width/2 + index*2 * s_width/s_length;
-                    x2 = g_width/2 + (index*2+1) * s_width/s_length;
-                    y1 = g_height-s_length/2 - (index*2 * s_width/s_length)*slope;
-                    y2 = g_height-s_length/2 - ((index*2+1) * s_width/s_length)*slope;
+                    x1 = g_width/2 + index*2 * g_linecnt;
+                    x2 = g_width/2 + (index*2+1) * g_linecnt;
+                    y1 = g_height-s_length/2 - (index*2 * g_linecnt)*slope;
+                    y2 = g_height-s_length/2 - ((index*2+1) * g_linecnt)*slope;
                 } else {
-                    x1 = g_width/2 - index*2 * s_width/s_length;
-                    x2 = g_width/2 - (index*2+1) * s_width/s_length;
-                    y1 = g_height-s_length/2 + (index*2 * s_width/s_length)*slope;
-                    y2 = g_height-s_length/2 + ((index*2+1) * s_width/s_length)*slope;
+                    x1 = g_width/2 - index*2 * g_linecnt;
+                    x2 = g_width/2 - (index*2+1) * g_linecnt;
+                    y1 = g_height-s_length/2 + (index*2 * g_linecnt)*slope;
+                    y2 = g_height-s_length/2 + ((index*2+1) * g_linecnt)*slope;
                 }
                 // 如果虚线超出边框，反射回边框内
                 if (x2 > s_width+g_border) {
@@ -259,11 +260,13 @@
                 // 确定在哪几个点放方块
                 var cnt = Math.floor(Math.random()*5)+1;
                 var rands = new Array();
-                for (var i = 0; i < s_width/s_length; i++) {
+                for (var i = 0; i < g_linecnt; i++) {
                     rands[i] = i;
                 }
                 // 随机洗牌法
                 rands = shuffle(rands, rands.length)
+
+                // 增加方块
                 for (var i = 0; i < cnt; i++) {
                     gameData.squareIndex += 1;
                     square = {position: {x: rands[i]*s_length+g_border, y: 0}};

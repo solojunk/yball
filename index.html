@@ -84,8 +84,8 @@
                 gameOver = this.add.bitmapText(g_width/8, g_height/3, 'gothic', 'game over~', s_length).setDepth(1).setVisible(false);
                 // 初始化弹道虚线
                 var dashLine = new Array();
-                for (var i = 0; i < 25; i++) {
-                    dashLine[i] = this.add.line(0, 0, g_width/2, g_height-s_length/2, g_width/2, g_height-s_length/2, 0x00).setOrigin(0, 0);
+                for (var i = 0; i < 50; i++) {
+                    dashLine[i] = this.add.line(0, 0, g_width/2, g_height-s_length/2, g_width/2, g_height-s_length/2, 0x00).setLineWidth(2).setOrigin(0, 0);
                 }
 
                 // 鼠标移动事件
@@ -109,7 +109,7 @@
                     gameData.isShooting = true;
                     gameData.shootingBalls = gameData.balls.length;
                     // 隐藏瞄准线
-                    for (var i = 0; i < 25; i++) {
+                    for (var i = 0; i < 50; i++) {
                         dashLine[i].setVisible(false);
                     }
 
@@ -154,7 +154,7 @@
                 if (y > g_height-s_length/2 || Math.abs(slope) < 0.4) return;
 
                 // 画虚线
-                for (var i = 0; i < 25; i++) {
+                for (var i = 0; i < 50; i++) {
                     setDashLine(dashLine[i], i, slope);
                 }
                 gameData.trajectory.x = x;

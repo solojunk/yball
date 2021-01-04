@@ -100,7 +100,7 @@
                     if (gameData.isShooting) return;
                     // 从没有触发过鼠标移动事件，直接检测落点
                     if (gameData.trajectory.x == undefined) {
-                        if (pointer.y > g_height-s_length/2 && Math.abs((g_height-s_length/2 - pointer.y) / (pointer.x - g_width/2)) >= 0.4) return;
+                        if (pointer.y > g_height-s_length/2 || Math.abs((g_height-s_length/2 - pointer.y) / (pointer.x - g_width/2)) < 0.4) return;
                         gameData.trajectory.x = pointer.x;
                         gameData.trajectory.y = pointer.y;
                     }

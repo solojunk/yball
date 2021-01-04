@@ -58,6 +58,7 @@
                 this.load.image('rectangle', './img/rectangle.png');
                 this.load.image('ball', './img/plusBall.png');
                 this.load.bitmapFont('gothic', './img/gothic.png', './img/gothic.xml');
+                this.load.audio('encourage', './img/encourage.m4a');
             }
 
             // 对象的创建及初始化
@@ -136,7 +137,9 @@
                 this.physics.world.on('worldbounds', onWorldBounds, this);
                 // 方块组
                 gameData.squareGroup = this.physics.add.group({immovable: true});
-
+                // 激励音频
+                encourageAudio = this.sound.add('encourage');
+                
                 // 增加一层方块
                 createOneFloor.call(this);
                 // 弹球和方块加入碰撞检测
@@ -233,6 +236,10 @@
                 // 撞到了，方块数值减１，游戏得分加1
                 gameData.score += 1;
                 scoreText.setText(gameData.score);
+                // 得分每涨1000分，播放一次激励音频
+                if (gameData.score % 1000 == 0) {
+                    encourageAudio.play();
+                }
                 var score = square.squareObj.score.text - 1;
                 if (score <= 0) {
                     // 数据降为0以下，销毁方块

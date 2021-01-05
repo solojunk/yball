@@ -23,9 +23,10 @@
             var gameData = {
                 deadFloors: s_height/s_length, // 死亡所需层数
                 totalFloors: 1, // 累积层数
-                ballNum: 1, //初始球的数量
-                ballSpeed: 4000, //球速
-                score: 0, //分数
+                ballNum: 1, // 初始球的数量
+                ballSpeed: 4000, // 球速
+                score: 0, // 分数
+                lastScore: 0, // 上次分数
                 squareIndex: 0, // 方块编号
                 squareMap: new Map(), //方块阵列
                 curFloors: 0, // 当前到达层数
@@ -45,6 +46,9 @@
                 scene: {
                     preload: preload,
                     create: create
+                },
+                audio: {
+                    disableWebAudio: true
                 }
             }
             var game = new Phaser.Game(config);
@@ -59,7 +63,7 @@
                 this.load.image('rectangle', './img/rectangle.png');
                 this.load.image('ball', './img/plusBall.png');
                 this.load.bitmapFont('gothic', './img/gothic.png', './img/gothic.xml');
-                this.load.audio('encourage', './img/encourage.m4a');
+                this.load.audio('encourage', ['./img/encourage.ogg', './img/encourage.m4a']);
             }
 
             // 对象的创建及初始化
@@ -140,7 +144,7 @@
                 gameData.squareGroup = this.physics.add.group({immovable: true});
                 // 激励音频
                 encourageAudio = this.sound.add('encourage');
-                
+
                 // 增加一层方块
                 createOneFloor.call(this);
                 // 弹球和方块加入碰撞检测
@@ -215,6 +219,11 @@
                 // 增加一层方块
                 createOneFloor.call(this);
 
+                // 方块被清空或得分每涨1000分，播放一次激励音频
+                if (gameData.curFloors == 1 || gameData.score - gameData.lastScore >= 1000) {
+                    encourageAudio.play();
+                }
+
                 // 根据得分奖励球
                 var cnt = Math.floor(Math.log2(gameData.score) + gameData.totalFloors/5);
                 if (cnt > gameData.balls.length) {
@@ -226,6 +235,7 @@
                     }
                     ballsText.setText(cnt);
                 }
+                gameData.lastScore = gameData.score;
                 // 当所有球都停下时，将状态置为非弹球状态
                 gameData.isShooting = false;
             }
@@ -237,10 +247,6 @@
                 // 撞到了，方块数值减１，游戏得分加1
                 gameData.score += 1;
                 scoreText.setText(gameData.score);
-                // 得分每涨1000分，播放一次激励音频
-                if (gameData.score % 1000 == 0) {
-                    encourageAudio.play();
-                }
                 var score = square.squareObj.score.text - 1;
                 if (score <= 0) {
                     // 数据降为0以下，销毁方块
@@ -284,7 +290,7 @@
                 }
 
                 // 方块阵列层数加1
-                gameData.curFloors = Math.ceil(maxY / s_length) + 1;
+                gameData.curFloors = Math.round(maxY / s_length) + 1;
                 gameData.totalFloors += 1;
 
                 // 渲染方块图

@@ -232,7 +232,7 @@
                 createOneFloor.call(this);
 
                 // 方块被清空或得分每涨1000分，播放一次激励音频
-                if (gameData.curFloors <= 11 || gameData.score - gameData.lastScore >= 1000) {
+                if (gameData.curFloors == 1 || gameData.score - gameData.lastScore >= 1000) {
                     var r = encourageAudio.play();
                     // var r = this.sound.play('encourage');
                     if (r == false) {

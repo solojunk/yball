@@ -50,6 +50,7 @@
                 }
             }
             var game = new Phaser.Game(config);
+
             var scoreText; // 分数bitmapText
             var gameOver; // 游戏结束提示
             var timedEvent; // 次第射出时间线
@@ -134,10 +135,10 @@
                     // 次第显示弹球不重叠
                     timedEvent = this.time.addEvent({delay: 100, callback: onOneByOnEvent, repeat: gameData.balls.length});
 
-                    if (gameData.isBlur == true) {
-                        this.sound.resumeAll();
-                        gameData.isBlur = false;
-                    }
+                    // if (gameData.isBlur == true) {
+                    //     this.sound.resumeAll();
+                    //     gameData.isBlur = false;
+                    // }
                 }, this);
 
                 // 设置边界和边界事件函数
@@ -146,21 +147,21 @@
                 // 方块组
                 gameData.squareGroup = this.physics.add.group({immovable: true});
                 // 激励音频
-                encourageAudio = this.sound.add('encourage');
+                // encourageAudio = this.sound.add('encourage');
 
                 // 增加一层方块
                 createOneFloor.call(this);
                 // 弹球和方块加入碰撞检测
                 this.physics.add.collider(gameData.ballGroup, gameData.squareGroup, onCollider);
 
-                this.sound.pauseOnBlur = false;
-                this.game.events.on(Phaser.Core.Events.BLUR, () => {
-                    handleLoseFocus.call(this);
-                })
-                document.addEventListener('visibilitychange', () => {
-                    if (!document.hidden) return;
-                    handleLoseFocus.call(this);
-                })
+                // this.sound.pauseOnBlur = false;
+                // this.game.events.on(Phaser.Core.Events.BLUR, () => {
+                //     handleLoseFocus.call(this);
+                // })
+                // document.addEventListener('visibilitychange', () => {
+                //     if (!document.hidden) return;
+                //     handleLoseFocus.call(this);
+                // })
             }
 
             function drawDashLine(x, y, dashLine) {
@@ -231,13 +232,14 @@
                 // 增加一层方块
                 createOneFloor.call(this);
 
-                // 方块被清空或得分每涨1000分，播放一次激励音频
+                // 方块被清空或单次得分/弹球数>3(表示高效弹球)，播放一次激励音频
                 if (gameData.curFloors == 1 || (gameData.score - gameData.lastScore)/gameData.balls.length >= 3) {
-                    var r = encourageAudio.play();
-                    // var r = this.sound.play('encourage');
+                    // var r = encourageAudio.play();
+                    var r = this.sound.play('encourage');
                     if (r == false) {
                         gameOver.setVisible(true);
                     }
+                    this.sound.unlock();
                 }
 
                 // 根据得分奖励球
@@ -355,10 +357,10 @@
                 }
             }
 
-            function handleLoseFocus() {
-                this.sound.pauseAll();
-                gameData.isBlur = true;
-            }
+            // function handleLoseFocus() {
+            //     this.sound.pauseAll();
+            //     gameData.isBlur = true;
+            // }
         </script>
     </body>
 </html>

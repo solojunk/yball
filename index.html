@@ -51,10 +51,10 @@
             }
             var game = new Phaser.Game(config);
 
+            var ballsText; // 球个数
             var scoreText; // 分数bitmapText
             var gameOver; // 游戏结束提示
             var timedEvent; // 次第射出时间线
-            var encourageAudio; //激励音频
 
             // 加载资源
             function preload() {
@@ -134,11 +134,6 @@
                     gameData.trajectory.vy = vy;
                     // 次第显示弹球不重叠
                     timedEvent = this.time.addEvent({delay: 100, callback: onOneByOnEvent, repeat: gameData.balls.length});
-
-                    // if (gameData.isBlur == true) {
-                    //     this.sound.resumeAll();
-                    //     gameData.isBlur = false;
-                    // }
                 }, this);
 
                 // 设置边界和边界事件函数
@@ -146,22 +141,11 @@
                 this.physics.world.on('worldbounds', onWorldBounds, this);
                 // 方块组
                 gameData.squareGroup = this.physics.add.group({immovable: true});
-                // 激励音频
-                // encourageAudio = this.sound.add('encourage');
 
                 // 增加一层方块
                 createOneFloor.call(this);
                 // 弹球和方块加入碰撞检测
                 this.physics.add.collider(gameData.ballGroup, gameData.squareGroup, onCollider);
-
-                // this.sound.pauseOnBlur = false;
-                // this.game.events.on(Phaser.Core.Events.BLUR, () => {
-                //     handleLoseFocus.call(this);
-                // })
-                // document.addEventListener('visibilitychange', () => {
-                //     if (!document.hidden) return;
-                //     handleLoseFocus.call(this);
-                // })
             }
 
             function drawDashLine(x, y, dashLine) {
@@ -234,11 +218,7 @@
 
                 // 方块被清空或单次得分/弹球数>3(表示高效弹球)，播放一次激励音频
                 if (gameData.curFloors == 1 || (gameData.score - gameData.lastScore)/gameData.balls.length >= 3) {
-                    // var r = encourageAudio.play();
-                    var r = this.sound.play('encourage');
-                    if (r == false) {
-                        gameOver.setVisible(true);
-                    }
+                    this.sound.play('encourage');
                     this.sound.unlock();
                 }
 
@@ -301,7 +281,7 @@
                 // 增加方块
                 for (var i = 0; i < cnt; i++) {
                     gameData.squareIndex += 1;
-                    square = {position: {x: rands[i]*s_length+g_border, y: 0}};
+                    var square = {position: {x: rands[i]*s_length+g_border, y: 0}};
                     square.squareObj = createOneSquare.call(this, square.position.x, square.position.y);
                     square.squareObj.rectangle.setData('ID', gameData.squareIndex);
                     gameData.squareMap.set(gameData.squareIndex, square)
@@ -356,11 +336,6 @@
                     gameData.balls[gameData.balls.length-timedEvent.repeatCount].setVelocity(gameData.trajectory.vx, gameData.trajectory.vy);
                 }
             }
-
-            // function handleLoseFocus() {
-            //     this.sound.pauseAll();
-            //     gameData.isBlur = true;
-            // }
         </script>
     </body>
 </html>

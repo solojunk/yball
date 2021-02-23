@@ -21,7 +21,7 @@
             const g_height = s_height + g_border*2; // 场景总高度
 
             var gameData = {
-                deadFloors: s_height/s_length, // 死亡所需层数
+                deadFloors: Math.floor(s_height/s_length), // 死亡所需层数
                 totalFloors: 1, // 累积层数
                 ballNum: 1, // 初始球的数量
                 ballSpeed: 4000, // 球速
